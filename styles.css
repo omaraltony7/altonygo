@@ -3167,7 +3167,6 @@ html[lang="en"] .showreel-compact-badge {
     width: max-content;
     direction: ltr !important;
     animation: none !important;
-    transform: none !important;
     will-change: auto;
 }
 @keyframes brandsInfiniteTicker {
@@ -10440,3 +10439,221 @@ html[lang="en"] .categories .section-title {
     }
 }
 
+
+
+/* =====================================================================
+   v3.0.0 — PERFORMANCE & MOBILE FIXES  (live at https://altonygo.com)
+   ---------------------------------------------------------------------
+   html.perf-lite is set in <head> for phones, tablets, touch screens,
+   low-core machines and reduced-motion users.
+   ===================================================================== */
+
+/* ---------- 1. Smooth infinite marquee (logos + testimonials) ---------- */
+.v3-marquee {
+    overflow: hidden !important;
+    touch-action: pan-y;            /* vertical page scrolling keeps working on phones */
+    cursor: grab;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.v3-marquee.is-dragging { cursor: grabbing; }
+.v3-marquee-track {
+    will-change: transform;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+}
+.v3-marquee img {
+    -webkit-user-drag: none;
+    user-select: none;
+}
+
+/* ---------- 2. Logo tiles on phones: every logo stays inside its tile ---------- */
+@media (max-width: 768px) {
+    .brands-track { gap: 0.75rem !important; }
+    .brand-item {
+        width: 104px !important;
+        height: 60px !important;
+        padding: 0.5rem 0.7rem !important;
+        overflow: hidden !important;
+        background: rgba(255, 255, 255, 0.06) !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        transform: none !important;
+        contain: layout paint;
+    }
+    .brand-item:hover { transform: none !important; }
+    .brand-item .brand-logo-img,
+    .brand-item .brand-logo-img.logo-samsung,
+    .brand-item .brand-logo-img.logo-adnoc,
+    .brand-item .brand-logo-img.logo-carrots,
+    .brand-item .brand-logo-img.logo-voral,
+    .brand-item .brand-logo-img.logo-pubg,
+    .brand-item .brand-logo-img.logo-yango,
+    .brand-item .brand-logo-img.logo-nvidia,
+    .brand-item .brand-logo-img.logo-insomnia,
+    .brand-item .brand-logo-img.logo-egygab {
+        transform: none !important;
+        width: auto !important;
+        height: auto !important;
+        max-width: 100% !important;
+        max-height: 34px !important;
+        object-fit: contain !important;
+        opacity: 0.92 !important;
+        filter: none !important;     /* drop-shadow on moving images is expensive */
+        transition: none !important;
+    }
+    .brand-item .brand-logo-img.logo-egygab {
+        max-height: 24px !important;
+        filter: brightness(0) invert(1) !important;
+    }
+    .brand-item .brand-logo-img.logo-voral { max-height: 44px !important; }
+    .brand-item:hover .brand-logo-img { transform: none !important; }
+}
+
+/* ---------- 3. Lite mode: drop the effects that make phones stutter ---------- */
+/* Glass blur: re-computed on every scroll frame — the #1 cause of jank on phones */
+html.perf-lite *,
+html.perf-lite *::before,
+html.perf-lite *::after {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+/* 6 huge orbs with blur(140px) that were animating forever */
+html.perf-lite .orb {
+    filter: none !important;
+    animation: none !important;
+    transition: none !important;
+    will-change: auto !important;
+    opacity: 0.2 !important;
+}
+/* 3000px-tall blurred + blended poster layer */
+html.perf-lite .ambient-reference-poster {
+    filter: none !important;
+    mix-blend-mode: normal !important;
+    transform: none !important;
+    transition: none !important;
+    will-change: auto !important;
+    opacity: 0.1 !important;
+}
+html.perf-lite .aurora-ribbon,
+html.perf-lite .glow-streak,
+html.perf-lite .cosmic-play-symbol {
+    animation: none !important;
+    transition: none !important;
+    will-change: auto !important;
+}
+html.perf-lite .vector-grid-dots {
+    transform: none !important;
+    transition: none !important;
+    will-change: auto !important;
+}
+html.perf-lite .cursor-glow-follower { display: none !important; }
+html.perf-lite .reveal { will-change: auto !important; }
+html.perf-lite .lang-switch-anim { animation: v3LangSwitchLite 0.3s ease-out forwards !important; }
+@keyframes v3LangSwitchLite {
+    from { opacity: 0.35; }
+    to { opacity: 1; }
+}
+
+/* ---------- 4. Scroll Mode (TikTok-style) ---------- */
+.tiktok-header { gap: 0.5rem; }
+.tiktok-cat-pills {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+}
+.tiktok-slide {
+    contain: layout paint;
+}
+.tiktok-thumb-cover {
+    background-color: #000;
+}
+.tiktok-bg-blur {
+    background-color: #0a0718;
+}
+html.perf-lite .tiktok-bg-blur {
+    filter: blur(22px) brightness(0.3) saturate(1.3);
+    -webkit-filter: blur(22px) brightness(0.3) saturate(1.3);
+}
+.tiktok-play-indicator { transition: opacity 0.2s ease; }
+.tiktok-loading-ring {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 255, 255, 0.18);
+    border-top-color: #eab308;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+.tiktok-slide.is-loading .tiktok-loading-ring {
+    opacity: 1;
+    animation: v3TiktokSpin 0.8s linear infinite;
+}
+.tiktok-slide.is-loading .tiktok-play-indicator { opacity: 0; }
+@keyframes v3TiktokSpin { to { transform: rotate(360deg); } }
+
+.tiktok-paused-badge {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    border: 2px solid rgba(255, 255, 255, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    pointer-events: none;
+    opacity: 0;
+    transform: scale(0.85);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.tiktok-slide.is-playing.is-paused .tiktok-paused-badge {
+    opacity: 1;
+    transform: scale(1);
+}
+.tiktok-index-pill { unicode-bidi: isolate; }
+.tiktok-video-iframe.is-instagram,
+.tiktok-video-iframe.is-tiktok {
+    background: #000;
+    max-width: min(420px, 100vw);
+}
+@media (max-width: 600px) {
+    .tiktok-header { padding-left: 0.6rem; padding-right: 0.6rem; }
+    .tiktok-close-btn .tiktok-exit-text { display: none; }
+    .tiktok-close-btn { padding: 0.4rem; }
+    .tiktok-side-rail { gap: 0.7rem; bottom: calc(118px + env(safe-area-inset-bottom)); }
+    .tiktok-rail-btn { width: 40px; height: 40px; }
+    .tiktok-bottom-info { right: 64px; padding-top: 2.4rem; }
+    html[dir="rtl"] .tiktok-bottom-info { text-align: right; }
+}
+/* v3: keep the bottom meta row on one line */
+.tiktok-audio-pill {
+    display: flex;
+    flex-wrap: nowrap;
+    min-width: 0;
+    max-width: 100%;
+}
+.tiktok-audio-pill .audio-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.tiktok-audio-pill .music-note,
+.tiktok-index-pill {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+.tiktok-creator-name {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

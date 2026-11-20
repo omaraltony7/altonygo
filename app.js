@@ -103,6 +103,7 @@ const translations = {
         scrollModePillUAE: "الإمارات",
         scrollModePillFilms: "أفلام",
         scrollModePillMedia: "ميديا",
+        scrollModePillAds: "إعلانات",
         modalTermsHeading: "شروط وضوابط العمل",
         modalContactTitle: "جاهز لبدء مشروعك القادم؟",
         modalContactDesc: "تواصل معي مباشرة لمناقشة التفاصيل وبدء التنفيذ فوراً.",
@@ -419,6 +420,7 @@ const translations = {
         scrollModePillUAE: "UAE",
         scrollModePillFilms: "Films",
         scrollModePillMedia: "Media",
+        scrollModePillAds: "Ads",
         modalTermsHeading: "Work Guidelines & Ethical Standards",
         modalContactTitle: "Ready to Launch Your Next Project?",
         modalContactDesc: "Connect directly to discuss scope and kick off production immediately.",
@@ -652,6 +654,28 @@ const translations = {
 let currentLang = 'ar'; // Defaulting to Arabic as requested by user
 
 /* ========================================================
+   v3 PERFORMANCE PROFILE
+   "perf-lite" is set in <head> for phones, tablets, touch devices,
+   low-core machines and reduced-motion users. Heavy effects
+   (blur layers, parallax, canvas glow) are toned down there.
+   ======================================================== */
+const PERF = (() => {
+    const mq = (q) => !!(window.matchMedia && window.matchMedia(q).matches);
+    const touch = mq('(hover: none)') || mq('(pointer: coarse)');
+    const reducedMotion = mq('(prefers-reduced-motion: reduce)');
+    const low = document.documentElement.classList.contains('perf-lite') || touch || reducedMotion || mq('(max-width: 900px)');
+    if (low) document.documentElement.classList.add('perf-lite');
+    return { low, touch, reducedMotion };
+})();
+
+/* True while a fullscreen layer (scroll mode / category modal) covers the page,
+   so background animations can pause instead of burning CPU/GPU underneath. */
+function isPageCovered() {
+    return document.body.classList.contains('v3-overlay-open') ||
+        document.body.classList.contains('v3-modal-open');
+}
+
+/* ========================================================
    HIGH-PERFORMANCE COSMIC PARTICLES & CURSOR ENGINE
    ======================================================== */
 class CosmicParticles {
@@ -660,8 +684,10 @@ class CosmicParticles {
         if (!this.canvas) return;
         this.ctx = this.canvas.getContext('2d');
         this.particles = [];
-                this.trailParticles = [];
-        this.particleCount = 70; // Soft and calm, strictly in background
+        this.trailParticles = [];
+        this.particleCount = PERF.reducedMotion ? 0 : (PERF.low ? 26 : 70);
+        this.glow = !PERF.low; // shadowBlur is the most expensive canvas op — desktop only
+        this.frameSkip = 0;
         this.mouse = { x: -1000, y: -1000, prevX: -1000, prevY: -1000, radius: 150, active: false };
         this.scrollVelocity = 0;
         this.targetScrollVelocity = 0;
@@ -678,8 +704,17 @@ class CosmicParticles {
     }
 
     init() {
+        this.resize();
+        let resizeTimer = null;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                // Ignore small height-only changes (mobile URL bar showing/hiding)
+                if (window.innerWidth === this.width && Math.abs(window.innerHeight - this.height) < 140) return;
                 this.resize();
-        window.addEventListener('resize', () => this.resize());
+            }, 150);
+        });
+        if (this.particleCount === 0) { this.canvas.style.display = 'none'; return; }
 
         window.addEventListener('scroll', () => {
             const currentScrollY = window.scrollY || window.pageYOffset || 0;
@@ -757,7 +792,13 @@ class CosmicParticles {
     }
 
     animate() {
+        // Pause while a fullscreen layer covers the page; run at ~30fps on lite devices
+        if (isPageCovered() || (PERF.low && (this.frameSkip = (this.frameSkip + 1) % 2) === 1)) {
+            requestAnimationFrame(() => this.animate());
+            return;
+        }
         this.ctx.clearRect(0, 0, this.width, this.height);
+        if (!this.glow) this.ctx.shadowBlur = 0;
 
         // 1. Draw Trail Particles
         for (let i = this.trailParticles.length - 1; i >= 0; i--) {
@@ -774,8 +815,10 @@ class CosmicParticles {
             this.ctx.beginPath();
             this.ctx.arc(tp.x, tp.y, tp.size, 0, Math.PI * 2);
             this.ctx.fillStyle = `rgba(255, 255, 255, ${tp.alpha})`;
-            this.ctx.shadowBlur = 8;
-            this.ctx.shadowColor = '#ffffff';
+            if (this.glow) {
+                this.ctx.shadowBlur = 8;
+                this.ctx.shadowColor = '#ffffff';
+            }
             this.ctx.fill();
         }
 
@@ -821,7 +864,9 @@ class CosmicParticles {
             this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
             this.ctx.fillStyle = `${p.colorBase}${alpha})`;
 
-            if (p.isGlowing) {
+            if (!this.glow) {
+                // no shadow on lite devices
+            } else if (p.isGlowing) {
                 this.ctx.shadowBlur = 10;
                 this.ctx.shadowColor = '#38bdf8';
             } else {
@@ -860,12 +905,18 @@ class CosmicParticles {
 function initCursorGlowFollower() {
     const follower = document.getElementById('cursorGlowFollower');
     if (!follower) return;
+    // No mouse on phones/tablets: drop the 600px blurred layer entirely
+    if (PERF.touch || PERF.reducedMotion) {
+        follower.remove();
+        return;
+    }
 
     let targetX = window.innerWidth / 2;
     let targetY = window.innerHeight / 2;
     let currentX = targetX;
     let currentY = targetY;
     let isVisible = false;
+    let running = false;
 
     window.addEventListener('mousemove', (e) => {
         targetX = e.clientX;
@@ -874,7 +925,11 @@ function initCursorGlowFollower() {
             isVisible = true;
             follower.style.opacity = '1';
         }
-    });
+        if (!running) {
+            running = true;
+            requestAnimationFrame(loop);
+        }
+    }, { passive: true });
 
     document.addEventListener('mouseleave', () => {
         isVisible = false;
@@ -887,14 +942,18 @@ function initCursorGlowFollower() {
     });
 
     function loop() {
-        // Silky smooth lerp easing
+        // Silky smooth lerp easing — stops itself once it reaches the cursor
         currentX += (targetX - currentX) * 0.075;
         currentY += (targetY - currentY) * 0.075;
 
         follower.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
+        if (Math.abs(targetX - currentX) < 0.5 && Math.abs(targetY - currentY) < 0.5) {
+            running = false;
+            return;
+        }
         requestAnimationFrame(loop);
     }
-    loop();
+    follower.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
 }
 
 /* ========================================================
@@ -1000,18 +1059,18 @@ document.addEventListener('DOMContentLoaded', () => {
 function initPreloader() {
     const preloader = document.getElementById('preloader');
     if (!preloader) return;
-    window.addEventListener('load', () => {
-        setTimeout(() => {
-            preloader.classList.add('fade-out');
-        }, 450);
-    });
+    let done = false;
+    const dismiss = () => {
+        if (done) return;
+        done = true;
+        preloader.classList.add('fade-out');
+        // Remove it from rendering after the fade so its spinner stops animating
+        setTimeout(() => { preloader.style.display = 'none'; }, 900);
+    };
+    window.addEventListener('load', () => setTimeout(dismiss, 300));
 
-    // Fallback in case window load event fired early
-    setTimeout(() => {
-        if (!preloader.classList.contains('fade-out')) {
-            preloader.classList.add('fade-out');
-        }
-    }, 1200);
+    // Don't make visitors wait for every image/video to finish loading
+    setTimeout(dismiss, 1200);
 }
 
 /* ========================================================
@@ -2563,54 +2622,45 @@ function renderDoctorsPlaylistsSection() {
    SMOOTH 60FPS LIVING COSMIC BACKGROUND SCROLL ENGINE (REFERENCE POSTER THEME)
    ======================================================== */
 function initCosmicBackgroundScrollAnimation() {
+    // Phones / tablets: static background. Parallax on touch scrolling is the
+    // main source of jank, and the effect is barely visible on a small screen.
+    if (PERF.low) return;
+
     let ticking = false;
+    let maxScroll = 1;
+
+    // Query once (previously re-queried on every scroll frame)
+    const posterBg = document.querySelector('.ambient-reference-poster');
+    const speedLines = document.querySelector('.ambient-speed-lines');
+    const dotsTL = document.querySelector('.dots-top-left');
+    const dotsBR = document.querySelector('.dots-bottom-right');
+
+    function measure() {
+        maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+    }
+    measure();
+    window.addEventListener('resize', measure, { passive: true });
+    window.addEventListener('load', measure);
 
     function updateScrollVars() {
         const scrollY = window.scrollY || window.pageYOffset || 0;
-        const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
         const progress = Math.min(1, Math.max(0, scrollY / maxScroll));
 
-        document.documentElement.style.setProperty('--scroll-y', `${scrollY}px`);
-        document.documentElement.style.setProperty('--scroll-progress', progress.toFixed(4));
-
-        // Parallax continuous flow for Reference Poster overlay, aurora ribbons & speed lines (moving continuously with scroll)
-        const posterBg = document.querySelector('.ambient-reference-poster');
-        const auroraTop = document.querySelector('.aurora-top-right');
-        const auroraMid = document.querySelector('.aurora-center-flow');
-        const auroraBottom = document.querySelector('.aurora-bottom-left');
-        const speedLines = document.querySelector('.ambient-speed-lines');
-        const streaks = document.querySelectorAll('.glow-streak');
-        const orbs = document.querySelectorAll('.orb');
+        // Transforms are written directly on the few moving layers instead of a
+        // root CSS variable (which forced a style recalc of the whole page each frame).
+        if (dotsTL) dotsTL.style.transform = `translate3d(${scrollY * 0.04}px, ${scrollY * 0.08}px, 0)`;
+        if (dotsBR) dotsBR.style.transform = `translate3d(${scrollY * -0.04}px, ${scrollY * -0.08}px, 0)`;
 
         if (posterBg) {
             posterBg.style.transform = `translate3d(${-scrollY * 0.02}px, ${scrollY * 0.08}px, 0) scale(${1 + progress * 0.03})`;
             posterBg.style.opacity = `${0.18 + Math.sin(progress * Math.PI) * 0.06}`;
         }
-        if (auroraTop) {
-            auroraTop.style.transform = `translate3d(${-scrollY * 0.06}px, ${scrollY * 0.22}px, 0)`;
-        }
-        if (auroraMid) {
-            auroraMid.style.transform = `translate3d(${scrollY * 0.08}px, ${scrollY * 0.15}px, 0)`;
-        }
-        if (auroraBottom) {
-            auroraBottom.style.transform = `translate3d(0, ${-scrollY * 0.16}px, 0)`;
-        }
         if (speedLines) {
             speedLines.style.transform = `translate3d(${scrollY * 0.08}px, ${scrollY * 0.22}px, 0)`;
         }
-        if (streaks && streaks.length > 0) {
-            streaks.forEach((st, idx) => {
-                const spd = 0.18 + idx * 0.08;
-                st.style.transform = `translate3d(${scrollY * spd * (idx % 2 === 0 ? 1 : -1)}px, 0, 0)`;
-            });
-        }
-        if (orbs && orbs.length > 0) {
-            orbs.forEach((orb, i) => {
-                const speed = 0.08 + (i % 3) * 0.05;
-                const dir = (i % 2 === 0) ? 1 : -1;
-                orb.style.transform = `translate3d(0, ${scrollY * speed * dir}px, 0)`;
-            });
-        }
+        // (Aurora ribbons, streaks and orbs are driven by their own CSS keyframe
+        // animations, which always override an inline transform — writing them
+        // here every frame was wasted work, so it was removed.)
 
         ticking = false;
     }
@@ -2870,6 +2920,7 @@ function initCategoryModals() {
         updateExpandButtonText(false);
 
         modal.classList.add('active');
+        document.body.classList.add('v3-modal-open');
         renderModalDynamicThemeBg(catKey);
         updateModalOtherProjectsState(catKey);
         document.body.style.overflow = 'hidden';
@@ -2912,6 +2963,7 @@ function initCategoryModals() {
 
     function closeModal() {
         modal.classList.remove('active');
+        document.body.classList.remove('v3-modal-open');
         document.body.style.overflow = '';
         if (dialog) dialog.classList.remove('is-fullscreen');
         stopModalWavesAnimation();
@@ -3079,184 +3131,192 @@ function initCustomCursor() {
 /* ========================================================
    TESTIMONIALS INFINITE SMOOTH AUTO-SLIDER & DRAG
    ======================================================== */
-function initTestimonialsSlider() {
-    const slider = document.getElementById('testimonialsSlider');
-    const track = document.getElementById('testimonialsTrack');
-    if (!slider || !track) return;
+/* --------------------------------------------------------
+   v3 Infinite marquee engine (shared by logos + testimonials)
+   - Moves the track with a GPU transform and sub-pixel float
+     position instead of nudging scrollLeft by 0.85px a frame
+     (scrollLeft gets rounded on phones -> stutter / stalls).
+   - Drag / swipe with pointer events; vertical page scrolling
+     keeps working on phones (touch-action: pan-y).
+   - Pauses itself while off-screen or covered by an overlay.
+   -------------------------------------------------------- */
+function createAutoMarquee(container, track, opts = {}) {
+    if (!container || !track) return null;
+    const pxPerSecond = opts.speed || 50;
+    const dragFactor = opts.dragFactor || 1;
 
-    let isDown = false;
-    let isHovered = false;
-    let startX = 0;
-    let scrollStart = 0;
-    const baseSpeed = 0.85;
-    let currentSpeed = baseSpeed;
-    let targetSpeed = baseSpeed;
+    container.classList.add('v3-marquee');
+    track.classList.add('v3-marquee-track');
 
-    slider.addEventListener('mouseenter', () => {
-        isHovered = true;
-        targetSpeed = 0;
-    });
-    slider.addEventListener('mouseleave', () => {
-        isHovered = false;
-        isDown = false;
-        targetSpeed = baseSpeed;
-    });
-    slider.addEventListener('touchstart', () => {
-        isHovered = true;
-        targetSpeed = 0;
-    }, { passive: true });
-    slider.addEventListener('touchend', () => {
-        isHovered = false;
-        targetSpeed = baseSpeed;
-    });
+    let pos = 0;               // current offset in px (track moves left by pos)
+    let loopWidth = 0;         // width of one repeat cycle (half of the duplicated track)
+    let speed = PERF.reducedMotion ? 0 : pxPerSecond;
+    let targetSpeed = speed;
+    let visible = true;
+    let hovering = false;
+    let dragging = false;
+    let dragStartX = 0;
+    let dragStartPos = 0;
+    let moved = 0;
+    let resumeTimer = null;
+    let lastTs = 0;
+    let rafId = null;
 
-    slider.addEventListener('mousedown', (e) => {
-        isDown = true;
-        targetSpeed = 0;
-        currentSpeed = 0;
-        slider.style.cursor = 'grabbing';
-        startX = e.pageX - slider.offsetLeft;
-        scrollStart = slider.scrollLeft;
-    });
-
-    window.addEventListener('mouseup', () => {
-        if (isDown) {
-            isDown = false;
-            targetSpeed = isHovered ? 0 : baseSpeed;
-            slider.style.cursor = 'grab';
+    function measure() {
+        loopWidth = track.scrollWidth / 2;
+        wrap();
+        render();
+    }
+    function wrap() {
+        if (loopWidth > 0) {
+            pos = ((pos % loopWidth) + loopWidth) % loopWidth;
         }
-    });
+    }
+    function render() {
+        track.style.transform = `translate3d(${-pos}px, 0, 0)`;
+    }
 
-    slider.addEventListener('mousemove', (e) => {
-        if (!isDown) return;
-        e.preventDefault();
-        const x = e.pageX - slider.offsetLeft;
-        const walk = (x - startX) * 1.6;
-        slider.scrollLeft = scrollStart - walk;
-    });
-
-    function ticker() {
-        if (!isDown) {
-            // Smooth gradual inertia: decelerates gradually to 0 on hover, accelerates on leave
-            currentSpeed += (targetSpeed - currentSpeed) * 0.06;
-            if (Math.abs(currentSpeed) > 0.005) {
-                slider.scrollLeft += currentSpeed;
-                const half = track.scrollWidth / 2;
-                if (half > 0) {
-                    if (slider.scrollLeft >= half) {
-                        slider.scrollLeft -= half;
-                    } else if (slider.scrollLeft <= 0) {
-                        slider.scrollLeft += half;
-                    }
-                }
+    function frame(ts) {
+        rafId = null;
+        if (!visible) return;
+        const dt = lastTs ? Math.min(64, ts - lastTs) / 1000 : 0;
+        lastTs = ts;
+        if (!dragging && !isPageCovered()) {
+            speed += (targetSpeed - speed) * Math.min(1, dt * 4);
+            if (Math.abs(speed) > 0.5) {
+                pos += speed * dt;
+                wrap();
+                render();
             }
         }
-        requestAnimationFrame(ticker);
+        rafId = requestAnimationFrame(frame);
     }
-    requestAnimationFrame(ticker);
+    function start() {
+        if (rafId === null && visible) {
+            lastTs = 0;
+            rafId = requestAnimationFrame(frame);
+        }
+    }
+
+    function setPaused(paused) {
+        targetSpeed = (paused || PERF.reducedMotion) ? 0 : pxPerSecond;
+    }
+
+    // Hover pause (desktop)
+    container.addEventListener('mouseenter', () => { hovering = true; setPaused(true); });
+    container.addEventListener('mouseleave', () => { hovering = false; if (!dragging) setPaused(false); });
+
+    // Drag / swipe (mouse + touch)
+    container.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        dragging = true;
+        moved = 0;
+        dragStartX = e.clientX;
+        dragStartPos = pos;
+        speed = 0;
+        clearTimeout(resumeTimer);
+        container.classList.add('is-dragging');
+    });
+    window.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        const dx = e.clientX - dragStartX;
+        moved = Math.max(moved, Math.abs(dx));
+        pos = dragStartPos - dx * dragFactor;
+        wrap();
+        render();
+    }, { passive: true });
+    const endDrag = () => {
+        if (!dragging) return;
+        dragging = false;
+        container.classList.remove('is-dragging');
+        clearTimeout(resumeTimer);
+        // Resume auto-scroll shortly after the finger lifts
+        resumeTimer = setTimeout(() => { if (!hovering) setPaused(false); }, 1200);
+        if (!hovering) setPaused(true);
+    };
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('pointercancel', endDrag);
+    window.addEventListener('blur', endDrag);
+    document.addEventListener('mouseleave', endDrag);
+    // Block click-through after a real drag (so dragging doesn't open links)
+    container.addEventListener('click', (e) => {
+        if (moved > 6) { e.preventDefault(); e.stopPropagation(); moved = 0; }
+    }, true);
+    container.addEventListener('dragstart', (e) => e.preventDefault());
+
+    // Optional step buttons
+    const step = (dir) => {
+        const startPos = pos;
+        const dist = (opts.stepPx || 280) * dir;
+        const t0 = performance.now();
+        const dur = 420;
+        setPaused(true);
+        const anim = (now) => {
+            const p = Math.min(1, (now - t0) / dur);
+            const ease = 1 - Math.pow(1 - p, 3);
+            pos = startPos + dist * ease;
+            wrap();
+            render();
+            if (p < 1) requestAnimationFrame(anim);
+            else {
+                clearTimeout(resumeTimer);
+                resumeTimer = setTimeout(() => { if (!hovering) setPaused(false); }, 1500);
+            }
+        };
+        requestAnimationFrame(anim);
+    };
+    if (opts.prevBtn) opts.prevBtn.addEventListener('click', () => step(-1));
+    if (opts.nextBtn) opts.nextBtn.addEventListener('click', () => step(1));
+
+    // Only animate while on screen
+    if ('IntersectionObserver' in window) {
+        new IntersectionObserver((entries) => {
+            visible = entries[0].isIntersecting;
+            if (visible) start();
+        }, { rootMargin: '100px 0px' }).observe(container);
+    }
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) start();
+    });
+
+    let resizeTimer = null;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(measure, 150);
+    });
+    // Images inside the track change its width once they load
+    track.querySelectorAll('img').forEach(img => {
+        if (!img.complete) img.addEventListener('load', measure, { once: true });
+    });
+    window.addEventListener('load', measure);
+
+    measure();
+    start();
+    return { measure };
+}
+
+function initTestimonialsSlider() {
+    createAutoMarquee(
+        document.getElementById('testimonialsSlider'),
+        document.getElementById('testimonialsTrack'),
+        { speed: 48, dragFactor: 1.2 }
+    );
 }
 
 /* ========================================================
    BRANDS MARQUEE AUTO-SLIDER & INFINITE SMOOTH SCROLL (LIKE TESTIMONIALS)
    ======================================================== */
 function initBrandsSliderControls() {
-    const container = document.getElementById('brandsMarqueeContainer');
-    const track = document.getElementById('brandsTrack');
-    const prevBtn = document.getElementById('brandsPrevBtn');
-    const nextBtn = document.getElementById('brandsNextBtn');
-    if (!container || !track) return;
-
-    let isDown = false;
-    let isHovered = false;
-    let startX = 0;
-    let scrollStart = 0;
-    const baseSpeed = 0.85; // exactly matching testimonials speed
-    let currentSpeed = baseSpeed;
-    let targetSpeed = baseSpeed;
-
-    container.style.cursor = 'grab';
-
-    container.addEventListener('mouseenter', () => {
-        isHovered = true;
-        targetSpeed = 0;
-    });
-    container.addEventListener('mouseleave', () => {
-        isHovered = false;
-        isDown = false;
-        targetSpeed = baseSpeed;
-    });
-    container.addEventListener('touchstart', () => {
-        isHovered = true;
-        targetSpeed = 0;
-    }, { passive: true });
-    container.addEventListener('touchend', () => {
-        isHovered = false;
-        targetSpeed = baseSpeed;
-    });
-
-    container.addEventListener('mousedown', (e) => {
-        isDown = true;
-        targetSpeed = 0;
-        currentSpeed = 0;
-        container.style.cursor = 'grabbing';
-        startX = e.pageX - container.offsetLeft;
-        scrollStart = container.scrollLeft;
-    });
-
-    window.addEventListener('mouseup', () => {
-        if (isDown) {
-            isDown = false;
-            targetSpeed = isHovered ? 0 : baseSpeed;
-            container.style.cursor = 'grab';
+    createAutoMarquee(
+        document.getElementById('brandsMarqueeContainer'),
+        document.getElementById('brandsTrack'),
+        {
+            speed: 45,
+            dragFactor: 1.2,
+            prevBtn: document.getElementById('brandsPrevBtn'),
+            nextBtn: document.getElementById('brandsNextBtn')
         }
-    });
-
-    container.addEventListener('mousemove', (e) => {
-        if (!isDown) return;
-        e.preventDefault();
-        const x = e.pageX - container.offsetLeft;
-        const walk = (x - startX) * 1.5;
-        container.scrollLeft = scrollStart - walk;
-    });
-
-    if (prevBtn) {
-        prevBtn.addEventListener('click', () => {
-            const half = track.scrollWidth / 2;
-            if (container.scrollLeft <= 50 && half > 0) {
-                container.scrollLeft += half;
-            }
-            container.scrollBy({ left: -280, behavior: 'smooth' });
-        });
-    }
-    if (nextBtn) {
-        nextBtn.addEventListener('click', () => {
-            const half = track.scrollWidth / 2;
-            if (half > 0 && container.scrollLeft >= half) {
-                container.scrollLeft -= half;
-            }
-            container.scrollBy({ left: 280, behavior: 'smooth' });
-        });
-    }
-
-    function brandsTicker() {
-        if (!isDown) {
-            // Smooth gradual inertia: decelerates gradually to 0 on hover, accelerates on leave
-            currentSpeed += (targetSpeed - currentSpeed) * 0.06;
-            if (Math.abs(currentSpeed) > 0.005) {
-                container.scrollLeft += currentSpeed;
-                const half = track.scrollWidth / 2;
-                if (half > 0) {
-                    if (container.scrollLeft >= half) {
-                        container.scrollLeft -= half;
-                    } else if (container.scrollLeft <= 0) {
-                        container.scrollLeft += half;
-                    }
-                }
-            }
-        }
-        requestAnimationFrame(brandsTicker);
-    }
-    requestAnimationFrame(brandsTicker);
+    );
 }
 
 /* ========================================================
@@ -3276,12 +3336,13 @@ function observeReveals() {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
                 entry.target.classList.add('active');
+                observer.unobserve(entry.target); // reveal once, then stop watching
             }
         });
     }, { threshold: 0.05 });
 
     reveals.forEach(reveal => {
-        observer.observe(reveal);
+        if (!reveal.classList.contains('active')) observer.observe(reveal);
     });
 }
 
@@ -3376,9 +3437,13 @@ function startModalWavesAnimation(canvas) {
     let width = 0;
     let height = 0;
 
+    // Lite devices: 1x resolution, no shadow glow, ~30fps — the ribbons are soft anyway
+    const lite = PERF.low;
+    let skip = 0;
+
     function resize() {
         const rect = canvas.parentElement ? canvas.parentElement.getBoundingClientRect() : null;
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const dpr = lite ? 1 : Math.min(window.devicePixelRatio || 1, 2);
         width = rect && rect.width ? rect.width : window.innerWidth;
         height = rect && rect.height ? rect.height : window.innerHeight;
         canvas.width = Math.max(300, Math.floor(width * dpr));
@@ -3403,6 +3468,11 @@ function startModalWavesAnimation(canvas) {
         const modal = document.getElementById('categoryModal');
         if (!modal || !modal.classList.contains('active')) {
             modalWavesAnimationId = null;
+            return;
+        }
+        // Skip frames on lite devices, and entirely while scroll mode covers the modal
+        if (document.body.classList.contains('v3-overlay-open') || (lite && (skip = (skip + 1) % 2) === 1)) {
+            modalWavesAnimationId = requestAnimationFrame(draw);
             return;
         }
 
@@ -3469,12 +3539,12 @@ function startModalWavesAnimation(canvas) {
             ctx.lineJoin = 'round';
             ctx.globalAlpha = ribbon.baseAlpha;
             ctx.shadowColor = ribbon.color1;
-            ctx.shadowBlur = 24;
+            ctx.shadowBlur = lite ? 0 : 24;
             ctx.stroke();
 
             ctx.lineWidth = Math.max(1.5, ribbon.width * 0.12);
             ctx.globalAlpha = ribbon.glowAlpha;
-            ctx.shadowBlur = 15;
+            ctx.shadowBlur = lite ? 0 : 15;
             ctx.shadowColor = '#f5d0fe';
             ctx.strokeStyle = '#f5d0fe';
             ctx.stroke();
@@ -3602,6 +3672,13 @@ function initTikTokScrollMode() {
     let isMuted = false;
     let observer = null;
     let hintTimeout = null;
+    // v3: exactly ONE live player at a time
+    let activeSlideEl = null;   // slide currently snapped into view
+    let loadTimer = null;       // delayed player creation (skips slides you flick past)
+    let isOpen = false;
+    const PLAYER_LOAD_DELAY = 320; // ms a slide must stay in view before its video loads
+
+    if (muteIcon) muteIcon.textContent = isMuted ? '🔇' : '🔊';
 
     // Collect all videos from existing data sets
     function collectAllVideos() {
@@ -3790,13 +3867,52 @@ function initTikTokScrollMode() {
                     creatorEn: 'Media & Post-Production',
                     creatorNameAr: 'ميديا وبوست برودكشن',
                     creatorNameEn: 'Media & Post-Production',
-                    avatar: 'images and videos/media-production.jpg',
+                    avatar: 'images and videos/bento-art-media.png', // media-production.jpg doesn't exist in the repo
                     thumb: `https://img.youtube.com/vi/${v.id}/hqdefault.jpg`,
                     hasImage: true,
                     badgeIcon: '🎬',
                     catKey: 'media',
                     catNameAr: 'ميديا وبوست برودكشن',
                     catNameEn: 'Media & Post-Production'
+                });
+            });
+        }
+
+        // 6. Branded Commercials (YouTube / Instagram / TikTok)
+        if (typeof brandedAdsData !== 'undefined' && Array.isArray(brandedAdsData)) {
+            brandedAdsData.forEach((ad, aI) => {
+                let platform = ad.platform || 'youtube';
+                let id = ad.youtubeId || '';
+                const url = ad.url || '';
+                if (platform === 'instagram') {
+                    const m = url.match(/instagram\.com\/(?:reel|p)\/([^/?#]+)/);
+                    id = m ? m[1] : '';
+                } else if (platform === 'tiktok') {
+                    const m = url.match(/\/video\/(\d+)/);
+                    id = m ? m[1] : '';
+                } else if (!id) {
+                    const m = url.match(/(?:shorts\/|v=|youtu\.be\/)([\w-]{6,})/);
+                    id = m ? m[1] : '';
+                }
+                if (!id) return;
+                list.push({
+                    id,
+                    creatorId: 'ad-' + (ad.brand || aI),
+                    platform,
+                    url,
+                    titleAr: ad.titleAr || ad.title,
+                    titleEn: ad.titleEn || ad.title,
+                    creatorAr: ad.brand,
+                    creatorEn: ad.brand,
+                    creatorNameAr: ad.brand,
+                    creatorNameEn: ad.brand,
+                    avatar: ad.logo || '',
+                    thumb: ad.thumb || '',
+                    hasImage: !!ad.logo,
+                    badgeIcon: '📢',
+                    catKey: 'commercials',
+                    catNameAr: 'إعلانات تجارية',
+                    catNameEn: 'Commercials'
                 });
             });
         }
@@ -3864,7 +3980,8 @@ function initTikTokScrollMode() {
                     const targetIdx = parseInt(pill.getAttribute('data-target-index'), 10);
                     const targetSlide = container.querySelector(`.tiktok-slide[data-index="${targetIdx}"]`);
                     if (targetSlide) {
-                        targetSlide.scrollIntoView({ behavior: 'smooth' });
+                        // Jump straight there (a smooth scroll would fly past every slide in between)
+                        container.scrollTo({ top: targetSlide.offsetTop, behavior: 'instant' });
                     }
                 });
             });
@@ -3879,6 +3996,9 @@ function initTikTokScrollMode() {
             observer.disconnect();
             observer = null;
         }
+        clearTimeout(loadTimer);
+        activeSlideEl = null;
+        activeIndex = 0;
 
         container.innerHTML = '';
         currentVideos = videos;
@@ -3917,16 +4037,24 @@ function initTikTokScrollMode() {
                 `<img src="${video.avatar}" class="tiktok-rail-avatar" alt="${creator}">` :
                 `<div class="tiktok-rail-avatar tiktok-emoji-avatar">${video.badgeIcon || '🩺'}</div>`;
 
+            // Images are attached lazily (only for slides near the one on screen)
+            slide.setAttribute('data-thumb', thumbUrl);
+            const isYouTube = (video.platform || 'youtube') === 'youtube';
+
             slide.innerHTML = `
                 <div class="tiktok-media-box">
-                    <div class="tiktok-bg-blur" style="background-image: url('${thumbUrl}');"></div>
-                    <div class="tiktok-thumb-cover" style="background-image: url('${thumbUrl}');">
+                    <div class="tiktok-bg-blur"></div>
+                    <div class="tiktok-thumb-cover">
                         <div class="tiktok-play-indicator">
                             <svg viewBox="0 0 24 24" width="34" height="34" fill="#fff"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>
                         </div>
+                        <div class="tiktok-loading-ring" aria-hidden="true"></div>
                     </div>
                     <div class="tiktok-player-slot"></div>
-                    <div class="tiktok-touch-layer" title="انقر لتشغيل / إيقاف الفيديو"></div>
+                    ${isYouTube ? `<div class="tiktok-touch-layer" title="${isEn ? 'Tap to play / pause' : 'انقر لتشغيل / إيقاف الفيديو'}"></div>` : ''}
+                    <div class="tiktok-paused-badge" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="30" height="30" fill="#fff"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>
+                    </div>
                 </div>
 
                 <div class="tiktok-side-rail">
@@ -3954,7 +4082,7 @@ function initTikTokScrollMode() {
                     <div class="tiktok-audio-pill">
                         <span class="music-note">🎵</span>
                         <span class="audio-text">${creator} — Original Edit</span>
-                        <span class="tiktok-index-pill">${idx + 1} / ${total}</span>
+                        <span class="tiktok-index-pill" dir="ltr">${idx + 1} / ${total}</span>
                     </div>
                 </div>
             `;
@@ -3965,13 +4093,13 @@ function initTikTokScrollMode() {
             if (upBtn) {
                 upBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    container.scrollBy({ top: -window.innerHeight, behavior: 'smooth' });
+                    goToSlide(activeIndex - 1);
                 });
             }
             if (downBtn) {
                 downBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    container.scrollBy({ top: window.innerHeight, behavior: 'smooth' });
+                    goToSlide(activeIndex + 1);
                 });
             }
 
@@ -3991,19 +4119,25 @@ function initTikTokScrollMode() {
 
     function setupObserver() {
         observer = new IntersectionObserver((entries) => {
+            let best = null;
+            let bestRatio = 0;
             entries.forEach(entry => {
-                const slide = entry.target;
-                const idx = parseInt(slide.getAttribute('data-index'), 10);
-                if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
-                    activeIndex = idx;
-                    activateSlide(slide);
-                } else if (!entry.isIntersecting || entry.intersectionRatio < 0.3) {
-                    deactivateSlide(slide);
+                if (entry.isIntersecting && entry.intersectionRatio > bestRatio) {
+                    best = entry.target;
+                    bestRatio = entry.intersectionRatio;
+                }
+                // As soon as the playing slide is mostly scrolled away, silence it
+                if (entry.target === activeSlideEl && entry.intersectionRatio < 0.5) {
+                    unloadPlayer(entry.target);
+                    activeSlideEl = null; // so scrolling back to it reloads the video
                 }
             });
+            if (best && bestRatio >= 0.6 && best !== activeSlideEl) {
+                setActiveSlide(best);
+            }
         }, {
             root: container,
-            threshold: [0.25, 0.65]
+            threshold: [0, 0.5, 0.6, 0.9]
         });
 
         container.querySelectorAll('.tiktok-slide').forEach(slide => {
@@ -4011,106 +4145,189 @@ function initTikTokScrollMode() {
         });
     }
 
-    function activateSlide(slide) {
-        slide.classList.add('is-playing');
-        const slot = slide.querySelector('.tiktok-player-slot');
-        const vid = slide.getAttribute('data-vid');
-        const platform = slide.getAttribute('data-platform') || 'youtube';
-        if (!slot || !vid) return;
+    function sendYT(iframe, func, args) {
+        if (!iframe || !iframe.contentWindow) return;
+        try {
+            iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args: args || '' }), '*');
+        } catch (err) {}
+    }
+
+    // Attach thumbnail images only for the visible slide and its neighbours
+    function hydrateNearby(idx) {
+        const slides = container.querySelectorAll('.tiktok-slide');
+        for (let i = Math.max(0, idx - 1); i <= Math.min(slides.length - 1, idx + 2); i++) {
+            const s = slides[i];
+            if (s.dataset.hydrated) continue;
+            const url = s.getAttribute('data-thumb');
+            if (url) {
+                const bg = s.querySelector('.tiktok-bg-blur');
+                const cover = s.querySelector('.tiktok-thumb-cover');
+                const css = `url("${url.replace(/"/g, '%22')}")`;
+                if (bg) bg.style.backgroundImage = css;
+                if (cover) cover.style.backgroundImage = css;
+            }
+            s.dataset.hydrated = '1';
+        }
+    }
+
+    function setActiveSlide(slide) {
+        const idx = parseInt(slide.getAttribute('data-index'), 10);
+
+        // Kill every other player first — guarantees no overlapping audio
+        if (activeSlideEl && activeSlideEl !== slide) unloadPlayer(activeSlideEl);
+        container.querySelectorAll('.tiktok-slide.has-player').forEach(s => {
+            if (s !== slide) unloadPlayer(s);
+        });
+
+        activeSlideEl = slide;
+        activeIndex = idx;
+        hydrateNearby(idx);
 
         // Highlight matching client pill in clients bar
         const creatorId = slide.getAttribute('data-creator-id');
         if (clientsScroll && creatorId) {
             const activePill = clientsScroll.querySelector(`.tiktok-client-pill[data-client-id="${creatorId}"]`);
-            if (activePill) {
+            if (activePill && !activePill.classList.contains('active')) {
                 clientsScroll.querySelectorAll('.tiktok-client-pill').forEach(p => p.classList.remove('active'));
                 activePill.classList.add('active');
-                activePill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                const left = activePill.offsetLeft - (clientsScroll.clientWidth - activePill.offsetWidth) / 2;
+                clientsScroll.scrollTo({ left, behavior: 'smooth' });
             }
         }
 
-        let iframe = slot.querySelector('iframe');
-        const muteVal = isMuted ? 1 : 0;
-
-        if (!iframe) {
-            if (platform === 'instagram') {
-                slot.innerHTML = `
-                    <iframe class="tiktok-video-iframe is-instagram"
-                        src="https://www.instagram.com/reel/${vid}/embed/"
-                        frameborder="0"
-                        scrolling="no"
-                        allowtransparency="true"
-                        allow="autoplay; encrypted-media; fullscreen"
-                        allowfullscreen>
-                    </iframe>
-                `;
-            } else if (platform === 'drive') {
-                slot.innerHTML = `
-                    <iframe class="tiktok-video-iframe is-drive"
-                        src="https://drive.google.com/file/d/${vid}/preview"
-                        frameborder="0"
-                        allow="autoplay; encrypted-media; fullscreen"
-                        allowfullscreen>
-                    </iframe>
-                `;
-            } else {
-                slot.innerHTML = `
-                    <iframe class="tiktok-video-iframe"
-                        src="https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&enablejsapi=1&mute=${muteVal}&playsinline=1&controls=0&loop=1&playlist=${vid}&rel=0&modestbranding=1"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowfullscreen>
-                    </iframe>
-                `;
-            }
-        } else {
-            try {
-                iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: '' }), '*');
-                if (!isMuted) {
-                    iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: '' }), '*');
-                }
-            } catch (err) {}
-        }
-
-        // Clean up far slides to preserve memory
-        const allSlides = container.querySelectorAll('.tiktok-slide');
-        allSlides.forEach(s => {
-            const sIdx = parseInt(s.getAttribute('data-index'), 10);
-            if (Math.abs(sIdx - activeIndex) > 2) {
-                const sSlot = s.querySelector('.tiktok-player-slot');
-                if (sSlot && sSlot.innerHTML.trim() !== '') {
-                    sSlot.innerHTML = '';
-                    s.classList.remove('is-playing');
-                }
-            }
-        });
+        // Only create the player once the user stops on this slide
+        clearTimeout(loadTimer);
+        loadTimer = setTimeout(() => {
+            if (isOpen && activeSlideEl === slide) loadPlayer(slide);
+        }, PLAYER_LOAD_DELAY);
     }
 
-    function deactivateSlide(slide) {
-        slide.classList.remove('is-playing');
-        const iframe = slide.querySelector('iframe');
-        if (iframe && iframe.contentWindow) {
-            try {
-                iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: '' }), '*');
-            } catch (err) {}
+    function loadPlayer(slide) {
+        const slot = slide.querySelector('.tiktok-player-slot');
+        const vid = slide.getAttribute('data-vid');
+        const platform = slide.getAttribute('data-platform') || 'youtube';
+        if (!slot || !vid || slot.querySelector('iframe')) return;
+
+        const muteVal = isMuted ? 1 : 0;
+        let src = '';
+        let cls = 'tiktok-video-iframe';
+        if (platform === 'instagram') {
+            src = `https://www.instagram.com/reel/${vid}/embed/`;
+            cls += ' is-instagram';
+        } else if (platform === 'drive') {
+            src = `https://drive.google.com/file/d/${vid}/preview`;
+            cls += ' is-drive';
+        } else if (platform === 'tiktok') {
+            src = `https://www.tiktok.com/embed/v2/${vid}`;
+            cls += ' is-tiktok';
+        } else {
+            src = `https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&enablejsapi=1&mute=${muteVal}&playsinline=1&controls=0&loop=1&playlist=${vid}&rel=0&modestbranding=1&iv_load_policy=3&origin=${encodeURIComponent(location.origin)}`;
         }
+
+        const iframe = document.createElement('iframe');
+        iframe.className = cls;
+        iframe.src = src;
+        iframe.setAttribute('frameborder', '0');
+        iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen');
+        iframe.setAttribute('allowfullscreen', '');
+        if (platform === 'instagram') iframe.setAttribute('scrolling', 'no');
+        iframe.addEventListener('load', () => {
+            if (slide !== activeSlideEl) return;
+            slide.classList.add('is-playing');
+            if (platform === 'youtube') {
+                // Subscribe to state updates so tap-to-pause knows the real state
+                try {
+                    iframe.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: slide.getAttribute('data-index'), channel: 'widget' }), '*');
+                } catch (e) {}
+                sendYT(iframe, isMuted ? 'mute' : 'unMute');
+            }
+        });
+
+        slot.appendChild(iframe);
+        slide.classList.add('has-player', 'is-loading');
+        slide.classList.remove('is-paused');
+        // Fallback: reveal the player even if the load event is slow
+        setTimeout(() => {
+            if (slide === activeSlideEl && slide.classList.contains('has-player')) slide.classList.add('is-playing');
+            slide.classList.remove('is-loading');
+        }, 2500);
+    }
+
+    // Remove the iframe completely: the only 100% reliable way to stop its sound
+    // (Instagram / Drive / TikTok embeds can't be paused from outside at all).
+    function unloadPlayer(slide) {
+        if (!slide) return;
+        if (slide === activeSlideEl) clearTimeout(loadTimer);
+        const slot = slide.querySelector('.tiktok-player-slot');
+        if (slot && slot.firstChild) {
+            const iframe = slot.querySelector('iframe');
+            if (iframe) {
+                sendYT(iframe, 'pauseVideo');
+                iframe.src = 'about:blank';
+            }
+            slot.innerHTML = '';
+        }
+        slide.classList.remove('is-playing', 'is-paused', 'has-player', 'is-loading');
+        delete slide.dataset.ytState;
     }
 
     function togglePlayPause(slide) {
         const iframe = slide.querySelector('iframe');
-        if (!iframe || !iframe.contentWindow) return;
-        if (slide.classList.contains('is-paused')) {
-            slide.classList.remove('is-paused');
-            iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: '' }), '*');
-        } else {
+        if (!iframe) {
+            // Not loaded yet (or blocked) — load it now on tap
+            if (slide === activeSlideEl) { clearTimeout(loadTimer); loadPlayer(slide); }
+            return;
+        }
+        // Prefer the real state reported by YouTube (1 = playing, 3 = buffering)
+        const state = slide.dataset.ytState;
+        const isPlayingNow = state !== undefined ? (state === '1' || state === '3') : !slide.classList.contains('is-paused');
+        if (isPlayingNow) {
             slide.classList.add('is-paused');
-            iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: '' }), '*');
+            sendYT(iframe, 'pauseVideo');
+        } else {
+            slide.classList.remove('is-paused');
+            sendYT(iframe, 'playVideo');
+            if (!isMuted) sendYT(iframe, 'unMute');
         }
     }
 
+    // Player state updates coming back from YouTube iframes
+    window.addEventListener('message', (e) => {
+        if (!isOpen || typeof e.data !== 'string') return;
+        let host = '';
+        try { host = new URL(e.origin).hostname; } catch (err) { return; }
+        if (!/(^|\.)youtube(-nocookie)?\.com$/.test(host)) return;
+        let data;
+        try { data = JSON.parse(e.data); } catch (err) { return; }
+        if (!data || data.event !== 'infoDelivery' || !data.info || data.info.playerState === undefined) return;
+        const slide = activeSlideEl;
+        if (!slide) return;
+        const iframe = slide.querySelector('iframe');
+        if (!iframe || iframe.contentWindow !== e.source) {
+            // A stale player is still talking — make sure it is silent
+            return;
+        }
+        const st = String(data.info.playerState);
+        slide.dataset.ytState = st;
+        slide.classList.toggle('is-paused', st === '2');
+        if (st === '1') slide.classList.add('is-playing');
+        slide.classList.remove('is-loading');
+    });
+
+    function goToSlide(idx) {
+        const slides = container.querySelectorAll('.tiktok-slide');
+        if (!slides.length) return;
+        const target = slides[Math.max(0, Math.min(slides.length - 1, idx))];
+        container.scrollTo({ top: target.offsetTop, behavior: 'smooth' });
+    }
+
     function openScrollMode(initialCat = 'all') {
+        isOpen = true;
+        allVideos = collectAllVideos(); // pick up the current language
         overlay.style.display = 'flex';
         overlay.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
+        document.body.classList.add('v3-overlay-open');
 
         // When opened from a specific category page, hide global category chips
         if (initialCat && initialCat !== 'all') {
@@ -4138,21 +4355,19 @@ function initTikTokScrollMode() {
     }
 
     function closeScrollMode() {
+        isOpen = false;
+        clearTimeout(loadTimer);
         overlay.style.display = 'none';
         overlay.setAttribute('aria-hidden', 'true');
-
-        const iframes = container.querySelectorAll('iframe');
-        iframes.forEach(iframe => {
-            try {
-                iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: '' }), '*');
-            } catch (e) {}
-        });
-        container.innerHTML = '';
+        document.body.classList.remove('v3-overlay-open');
 
         if (observer) {
             observer.disconnect();
             observer = null;
         }
+        container.querySelectorAll('.tiktok-slide.has-player').forEach(unloadPlayer);
+        container.innerHTML = '';
+        activeSlideEl = null;
 
         const catModal = document.getElementById('categoryModal');
         if (!catModal || !catModal.classList.contains('active')) {
@@ -4178,18 +4393,27 @@ function initTikTokScrollMode() {
         muteBtn.addEventListener('click', () => {
             isMuted = !isMuted;
             if (muteIcon) muteIcon.textContent = isMuted ? '🔇' : '🔊';
-            const activeSlide = container.querySelector('.tiktok-slide.is-playing');
-            if (activeSlide) {
-                const iframe = activeSlide.querySelector('iframe');
-                if (iframe && iframe.contentWindow) {
-                    try {
-                        const cmd = isMuted ? 'mute' : 'unMute';
-                        iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: cmd, args: '' }), '*');
-                    } catch (e) {}
-                }
+            if (activeSlideEl) {
+                const iframe = activeSlideEl.querySelector('iframe');
+                sendYT(iframe, isMuted ? 'mute' : 'unMute');
             }
         });
     }
+
+    // Leaving the tab / locking the phone: stop the sound
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden && isOpen && activeSlideEl) {
+            const iframe = activeSlideEl.querySelector('iframe');
+            const platform = activeSlideEl.getAttribute('data-platform') || 'youtube';
+            if (platform === 'youtube') {
+                sendYT(iframe, 'pauseVideo');
+                activeSlideEl.classList.add('is-paused');
+            } else {
+                unloadPlayer(activeSlideEl);
+                activeSlideEl = null;
+            }
+        }
+    });
 
     if (closeBtn) closeBtn.addEventListener('click', closeScrollMode);
 
@@ -4217,14 +4441,13 @@ function initTikTokScrollMode() {
             closeScrollMode();
         } else if (e.key === 'ArrowDown' || e.key === 'PageDown') {
             e.preventDefault();
-            container.scrollBy({ top: window.innerHeight, behavior: 'smooth' });
+            goToSlide(activeIndex + 1);
         } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
             e.preventDefault();
-            container.scrollBy({ top: -window.innerHeight, behavior: 'smooth' });
+            goToSlide(activeIndex - 1);
         } else if (e.key === ' ' || e.key === 'k') {
             e.preventDefault();
-            const activeSlide = container.querySelector('.tiktok-slide.is-playing');
-            if (activeSlide) togglePlayPause(activeSlide);
+            if (activeSlideEl) togglePlayPause(activeSlideEl);
         } else if (e.key === 'm' || e.key === 'M') {
             if (muteBtn) muteBtn.click();
         }
