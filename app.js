@@ -153,9 +153,9 @@ const translations = {
         palestineCatPill: "🇵🇸 وثائقي تاريخي وسينمائي",
         palestineMetaPill: "مشروع التربية العسكرية",
         palestineTitle: "الفيلم المجهول لفلسطين",
-        palestineSubtitle: "The Unknown Film of Palestine — سيمفونية وثائقية عن قضية أمة ونضال تاريخي",
+        palestineSubtitle: "سيمفونية وثائقية عن قضية أمة ونضال تاريخي — <bdi>The Unknown Film of Palestine</bdi>",
         palestineNoticeTitle: "توضيح مهم حول العرض وحقوق الملكية:",
-        palestineNoticeDesc: "الفيلم الكامل مدته <strong>ساعة إلا ثلث (40 دقيقة)</strong>، ولكن المعروض هنا مقطتفات حصرية فقط لأن حقوق النشر والملكية الكاملة تعود لـ <strong>العقيد هيثم</strong> وسيتم نشره رسمياً في وقت لاحق، ولهذا سُمي بـ <strong>\"الفيلم المجهول لفلسطين\"</strong>.",
+        palestineNoticeDesc: "الفيلم الكامل مدته <strong>ساعة إلا ثلث (40 دقيقة)</strong>، ولكن المعروض هنا مقتطفات حصرية فقط لأن حقوق النشر والملكية الكاملة تعود لـ <strong>العقيد هيثم</strong> وسيتم نشره رسمياً في وقت لاحق، ولهذا سُمي بـ <strong>\"الفيلم المجهول لفلسطين\"</strong>.",
         palestineStoryTitle: "قصة العمل والرؤية الإخراجية:",
         palestineStoryP1: "هذان جزئين من هذا الفيلم الذي قمنا بعمله أنا وأشخاص رائعين، متميزين ومحبين لعملهم في مشروع التربية العسكرية بطلب من العقيد هيثم (القصة الكاملة سأشاركها معكم لاحقاً).",
         palestineStoryP2: "في قصة فلسطين كان هناك فصل مخصص عن <strong>حرب أكتوبر والنكسة</strong>، ولكن لم نتبحر فيه لأن في الأساس القصة عن فلسطين، وحرب أكتوبر هي قصة وبطولة عن مصر، وهذا كان رأي الأخ العزيز والزميل المبدع <strong>حازم إبراهيم (<a href=\"https://www.instagram.com/103_hazemibrahim/\" target=\"_blank\" rel=\"noopener noreferrer\">@103_hazemibrahim</a>)</strong> بأن يتم وضع قصة نصر أكتوبر كجزء صغير ومركز لأن القصة الأساسية هي عن فلسطين.",
@@ -170,19 +170,19 @@ const translations = {
         ctrlZCatPill: "⚡ فيلم روائي قصير وخيال علمي",
         ctrlZMetaPill: "✨ دور ثلاثي محوري للتوني",
         ctrlZTitle: "فيلم Ctrl Z",
-        ctrlZSubtitle: "مشروع صغير اشتغلنا عليه وجيه الوقت نشارككم بيه... !What if Ctrl+Z work in real life",
+        ctrlZSubtitle: "مشروع صغير اشتغلنا عليه وجه الوقت نشارككم بيه... <bdi>What if Ctrl+Z worked in real life?</bdi>",
         ctrlZRoleHeading: "المونتاج والتدريج اللوني والمؤثرات البصرية:",
         ctrlZRoleTag: "بصمة فنية ثلاثية 🌟",
         ctrlZFullTitle: "شاهد فيلم Ctrl Z كاملاً",
         ctrlZFullDesc: "قصة شاب يحاول التراجع عن أخطاء وقرارات الماضي الحقيقية بضغطة زر، بإيقاع درامي متصاعد وتدريج لوني يجسد تقلبات المزاج النفسي.",
-        ctrlZCreditsHeading: "صناع فيلم Ctrl Z (Credits):",
-        ctrlZGradingHeading: "كواليس التدريج اللوني (DaVinci Resolve Studio Color Grading):",
-        ctrlZGradingTitle: "شاشة التلوين وشجرة العقد (Node Tree) في DaVinci Resolve Studio — اضغط للتكبير",
+        ctrlZCreditsHeading: "صناع فيلم Ctrl Z وطاقم العمل:",
+        ctrlZGradingHeading: "كواليس التدريج اللوني في DaVinci Resolve Studio:",
+        ctrlZGradingTitle: "شاشة التلوين وشجرة العقد (<bdi>Node Tree</bdi>) في <bdi>DaVinci Resolve</bdi> — اضغط للتكبير",
         egygabCatPill: "🏛️ مونتاج سينمائي وتوثيق عقاري",
         egygabMetaPill: "شركة egygab للتطوير العقاري",
-        egygabTitle: "egygab — مونتاج سينمائي وتوثيق مشاريع",
+        egygabTitle: "مونتاج سينمائي وتوثيق مشاريع — <bdi>egygab</bdi>",
         egygabSubtitle: "سرد بصري وثائقي يعكس جودة وفخامة المشاريع المعمارية بإيقاع هادئ وتدريج لوني فخم",
-        egygabFullTitle: "egygab — المونتاج السينمائي الكامل",
+        egygabFullTitle: "المونتاج السينمائي الكامل — <bdi>egygab</bdi>",
         egygabFullDesc: "توثيق سينمائي لمعالم ومشاريع إيجي جاب بأسلوب إعلاني وثائقي راقٍ، ضبط درجات الألوان لتبرز جمال المعمار، مع هندسة صوتية موسيقية محيطية.",
 
         clientsTag: "ثقة ونتائج واقعية",
@@ -272,7 +272,7 @@ const translations = {
         aboutH2Title: "كبار صناع المحتوى",
         aboutH3Title: "أفلام وثائقية وسينمائية",
         aboutH4Title: "المجال العقاري والتسويقي",
-        aboutMentorTitle: "Senior Editor ومدرّب (Mentor)",
+        aboutMentorTitle: "مونتير أول ومدرّب (<bdi>Senior Editor &amp; Mentor</bdi>)",
         aboutMentorText: "أعمل حالياً كـ Senior Editor ومدرّب للمتدربين الجدد لنقل خبرات المونتاج الاحترافي وصناعة الإيقاع البصري، إلى جانب إدارة مشاريع الفريلانس لكبرى الشركات وصناع المحتوى. جاهز دائماً لصناعة الفارق في مشروعك القادم!",
         aboutText: `أنا <strong>عمر رمضان التوني</strong>، مونتير وموشن جرافيك ديزاينر بخبرة 4 سنوات في صناعة المحتوى الإبداعي.`,
 
@@ -3838,7 +3838,7 @@ function initTikTokScrollMode() {
             creatorId: 'egygab',
             platform: 'youtube',
             url: 'https://youtu.be/wfk7GyrL080',
-            titleAr: 'egygab — مونتاج سينمائي وتوثيق مشاريع',
+            titleAr: 'مونتاج سينمائي وتوثيق مشاريع — <bdi>egygab</bdi>',
             titleEn: 'egygab — Cinematic Showcase',
             creatorAr: 'وثائقي egygab',
             creatorEn: 'egygab Documentary',
@@ -4049,9 +4049,10 @@ function initTikTokScrollMode() {
                             <svg viewBox="0 0 24 24" width="34" height="34" fill="#fff"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>
                         </div>
                         <div class="tiktok-loading-ring" aria-hidden="true"></div>
+                        ${isYouTube ? '' : `<span class="tiktok-tap-hint">${isEn ? 'Tap to play' : 'اضغط للتشغيل'}</span>`}
                     </div>
                     <div class="tiktok-player-slot"></div>
-                    ${isYouTube ? `<div class="tiktok-touch-layer" title="${isEn ? 'Tap to play / pause' : 'انقر لتشغيل / إيقاف الفيديو'}"></div>` : ''}
+                    <div class="tiktok-touch-layer" title="${isEn ? 'Tap to play / pause' : 'انقر لتشغيل / إيقاف الفيديو'}"></div>
                     <div class="tiktok-paused-badge" aria-hidden="true">
                         <svg viewBox="0 0 24 24" width="30" height="30" fill="#fff"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>
                     </div>
@@ -4195,11 +4196,16 @@ function initTikTokScrollMode() {
             }
         }
 
-        // Only create the player once the user stops on this slide
+        // Only create the player once the user stops on this slide.
+        // Instagram / TikTok / Drive embeds come with their own white UI, so those
+        // slides keep showing the full cover image (like every other slide) and
+        // load their player only when tapped.
         clearTimeout(loadTimer);
-        loadTimer = setTimeout(() => {
-            if (isOpen && activeSlideEl === slide) loadPlayer(slide);
-        }, PLAYER_LOAD_DELAY);
+        if ((slide.getAttribute('data-platform') || 'youtube') === 'youtube') {
+            loadTimer = setTimeout(() => {
+                if (isOpen && activeSlideEl === slide) loadPlayer(slide);
+            }, PLAYER_LOAD_DELAY);
+        }
     }
 
     function loadPlayer(slide) {
